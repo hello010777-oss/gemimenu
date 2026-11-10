@@ -354,8 +354,9 @@ function menuPanel() {
             </div>
           </div>
           <div class="field full" data-menu-media="emoji" ${menu.mediaType === "photo" ? "hidden" : ""}>
-            <label>이모티콘 선택</label>
-            <input type="hidden" name="emoji" value="${escapeHtml(menu.emoji || "🍽️")}" />
+            <label for="menu-emoji">메뉴 이모티콘</label>
+            <input id="menu-emoji" name="emoji" maxlength="12" value="${escapeHtml(menu.emoji || "🍽️")}" placeholder="원하는 이모티콘을 입력하세요" />
+            <p class="hint">입력란을 누른 뒤 Windows 키 + 마침표(.)를 함께 누르면 원하는 이모티콘을 직접 추가할 수 있어요.</p>
             <div class="emoji-picker">
               ${EMOJIS.map((emoji) => `
                 <button type="button" class="emoji-choice ${emoji === menu.emoji ? "active" : ""}" data-menu-emoji="${emoji}" aria-label="${emoji} 선택">${emoji}</button>
