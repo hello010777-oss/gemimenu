@@ -126,18 +126,73 @@ function applyTheme() {
 }
 
 function mediaMarkup(item, className = "menu-visual") {
-  if (item.mediaType === "photo" && item.image) {
-    return `<div class="${className}"><img src="${item.image}" alt="${escapeHtml(item.name || "업로드한 사진")}" /></div>`;
+  if ((item.mediaType === "photo" || item.image) && item.image) {
+    return `<div class="${className} has-photo"><img src="${item.image}" alt="${escapeHtml(item.name || "업로드한 사진")}" /></div>`;
   }
   return `<div class="${className}" aria-hidden="true">${escapeHtml(item.emoji || "✨")}</div>`;
 }
 
 function brandMarkup(className = "brand-mark") {
   const settings = state.settings;
-  if (settings.mediaType === "photo" && settings.image) {
-    return `<div class="${className}"><img src="${settings.image}" alt="${escapeHtml(settings.storeName)} 로고" /></div>`;
+  if ((settings.mediaType === "photo" || settings.image) && settings.image) {
+    return `<div class="${className} has-photo"><img src="${settings.image}" alt="${escapeHtml(settings.storeName)} 로고" /></div>`;
   }
   return `<div class="${className}" aria-hidden="true">${escapeHtml(settings.emoji || "🍴")}</div>`;
+}
+
+function emojiActiveClass(selected, emoji) {
+  return selected.includes(emoji) ? "active" : "";
+}
+
+function switchMediaMode(form, mode) {
+  if (!form) return;
+  const radio = form.querySelector(`input[name="mediaType"][value="${mode}"]`);
+  if (radio) radio.checked = true;
+  const isMenu = form.id === "menu-form";
+  const emojiPanel = form.querySelector(isMenu ? "[data-menu-media='emoji']" : "[data-setting-media='emoji']");
+  if (emojiPanel) emojiPanel.hidden = mode !== "emoji";
+}
+
+function applyUploadedPhoto(target, result, draftKey) {
+  if (draftKey === "menu") menuDraftImage = result;
+  else settingDraftImage = result;
+
+  const form = target.closest("form");
+  switchMediaMode(form, "photo");
+  if (form?.elements?.emoji) form.elements.emoji.value = "";
+
+  const upload = target.closest(".upload-box");
+  upload.querySelector(":scope > div, :scope > img")?.remove();
+  upload.insertAdjacentHTML(
+    "afterbegin",
+    `<img class="upload-preview" src="${result}" alt="${draftKey === "menu" ? "메뉴" : "대표"} 사진 미리보기" />`
+  );
+  showToast("사진을 올렸어요. 이모티콘은 지우고 사진으로 표시됩니다.");
+}
+
+function appendEmoji(input, emoji, pickerRoot) {
+  if (!input) return;
+  const next = `${input.value}${emoji}`;
+  if ([...next].length > 16) {
+    showToast("이모티콘은 최대 16개까지 넣을 수 있어요.");
+    return;
+  }
+  input.value = next;
+  pickerRoot?.querySelectorAll(".emoji-choice").forEach((item) => {
+    const choice = item.dataset.menuEmoji || item.dataset.settingEmoji;
+    item.classList.toggle("active", Boolean(choice) && input.value.includes(choice));
+  });
+}
+
+function resetUploadPreview(upload, label = "메뉴") {
+  if (!upload) return;
+  upload.querySelector(":scope > div, :scope > img")?.remove();
+  upload.insertAdjacentHTML(
+    "afterbegin",
+    `<div><strong>📷 사진을 눌러 선택하세요</strong><p class="hint">${label === "대표" ? "이 사진은 상단 로고와 메뉴판 소개에 표시됩니다." : "휴대폰으로 찍은 사진도 바로 사용할 수 있어요."}</p></div>`
+  );
+  const input = upload.querySelector('input[type="file"]');
+  if (input) input.value = "";
 }
 
 function headerMarkup(isAdmin = false) {
@@ -355,20 +410,23 @@ function menuPanel() {
           </div>
           <div class="field full" data-menu-media="emoji" ${menu.mediaType === "photo" ? "hidden" : ""}>
             <label for="menu-emoji">메뉴 이모티콘</label>
-            <input id="menu-emoji" name="emoji" maxlength="12" value="${escapeHtml(menu.emoji || "🍽️")}" placeholder="원하는 이모티콘을 입력하세요" />
-            <p class="hint">입력란을 누른 뒤 Windows 키 + 마침표(.)를 함께 누르면 원하는 이모티콘을 직접 추가할 수 있어요.</p>
+            <div class="emoji-input-row">
+              <input id="menu-emoji" name="emoji" maxlength="128" value="${escapeHtml(menu.emoji || "🍽️")}" placeholder="원하는 이모티콘을 여러 개 넣으세요" />
+              <button type="button" class="secondary-button" data-action="clear-menu-emoji">지우기</button>
+            </div>
+            <p class="hint">아래 버튼을 누를 때마다 이모티콘이 추가됩니다. Windows 키 + 마침표(.)로도 직접 넣을 수 있어요.</p>
             <div class="emoji-picker">
               ${EMOJIS.map((emoji) => `
-                <button type="button" class="emoji-choice ${emoji === menu.emoji ? "active" : ""}" data-menu-emoji="${emoji}" aria-label="${emoji} 선택">${emoji}</button>
+                <button type="button" class="emoji-choice ${emojiActiveClass(menu.emoji || "", emoji)}" data-menu-emoji="${emoji}" aria-label="${emoji} 추가">${emoji}</button>
               `).join("")}
             </div>
           </div>
-          <div class="field full" data-menu-media="photo" ${menu.mediaType !== "photo" ? "hidden" : ""}>
+          <div class="field full" data-menu-media="photo">
             <label for="menu-photo">메뉴 사진</label>
             <div class="upload-box">
               ${menuDraftImage
                 ? `<img class="upload-preview" src="${menuDraftImage}" alt="메뉴 사진 미리보기" />`
-                : `<div><strong>📷 사진을 눌러 선택하세요</strong><p class="hint">휴대폰으로 찍은 사진도 바로 사용할 수 있어요.</p></div>`}
+                : `<div><strong>📷 사진을 눌러 선택하세요</strong><p class="hint">사진을 올리면 이모티콘은 자동으로 지워지고, 메뉴판에 사진 전체가 보여요.</p></div>`}
               <input id="menu-photo" type="file" accept="image/*" data-image-upload="menu" aria-label="메뉴 사진 업로드" />
             </div>
           </div>
@@ -453,20 +511,23 @@ function settingsPanel() {
         </div>
         <div class="field" data-setting-media="emoji" ${settings.mediaType === "photo" ? "hidden" : ""}>
           <label for="board-emoji">앱 로고·제목 이모티콘</label>
-          <input id="board-emoji" name="emoji" maxlength="12" value="${escapeHtml(settings.emoji || "🍴")}" placeholder="원하는 이모티콘을 붙여넣으세요" />
-          <p class="hint">기본값은 수저와 포크(🍴)이며, 직접 입력하거나 아래에서 마음대로 골라 주세요.</p>
+          <div class="emoji-input-row">
+            <input id="board-emoji" name="emoji" maxlength="128" value="${escapeHtml(settings.emoji || "🍴")}" placeholder="원하는 이모티콘을 여러 개 넣으세요" />
+            <button type="button" class="secondary-button" data-action="clear-setting-emoji">지우기</button>
+          </div>
+          <p class="hint">아래 버튼을 누를 때마다 이모티콘이 추가됩니다. 기본값은 수저와 포크(🍴)예요.</p>
           <div class="emoji-picker">
             ${EMOJIS.map((emoji) => `
-              <button type="button" class="emoji-choice ${emoji === settings.emoji ? "active" : ""}" data-setting-emoji="${emoji}" aria-label="${emoji} 선택">${emoji}</button>
+              <button type="button" class="emoji-choice ${emojiActiveClass(settings.emoji || "", emoji)}" data-setting-emoji="${emoji}" aria-label="${emoji} 추가">${emoji}</button>
             `).join("")}
           </div>
         </div>
-        <div class="field" data-setting-media="photo" ${settings.mediaType !== "photo" ? "hidden" : ""}>
+        <div class="field" data-setting-media="photo">
           <label for="board-photo">가게 또는 메뉴판 사진</label>
           <div class="upload-box">
             ${settingDraftImage
               ? `<img class="upload-preview" src="${settingDraftImage}" alt="대표 사진 미리보기" />`
-              : `<div><strong>📷 사진을 눌러 선택하세요</strong><p class="hint">이 사진은 상단 로고와 메뉴판 소개에 표시됩니다.</p></div>`}
+              : `<div><strong>📷 사진을 눌러 선택하세요</strong><p class="hint">사진을 올리면 이모티콘은 자동으로 지워지고, 상단 로고와 소개에 사진 전체가 보여요.</p></div>`}
             <input id="board-photo" type="file" accept="image/*" data-image-upload="settings" aria-label="대표 사진 업로드" />
           </div>
         </div>
@@ -559,7 +620,9 @@ function cartModal() {
         </div>
         ${cart.map((item) => `
           <div class="cart-line">
-            <span>${escapeHtml(item.emoji || "🍽️")}</span>
+            <span class="cart-media">${item.image
+              ? `<img src="${item.image}" alt="" />`
+              : escapeHtml(item.emoji || "🍽️")}</span>
             <strong>${escapeHtml(item.name)}</strong>
             <button class="qty-button" data-cart-minus="${item.id}" aria-label="${escapeHtml(item.name)} 수량 줄이기">−</button>
             <span>${item.quantity}</span>
@@ -593,32 +656,56 @@ function navigate(hash) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function readImage(file, callback) {
+async function compressImageSource(source) {
+  const maxSize = 1400;
+  const width = source.width || source.videoWidth || 1;
+  const height = source.height || source.videoHeight || 1;
+  const scale = Math.min(1, maxSize / Math.max(width, height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(width * scale));
+  canvas.height = Math.max(1, Math.round(height * scale));
+  const context = canvas.getContext("2d");
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+async function readImage(file, callback) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
     showToast("이미지 파일만 선택할 수 있어요.");
     return;
   }
-  if (file.size > 5 * 1024 * 1024) {
-    showToast("사진은 5MB 이하로 선택해 주세요.");
+  if (file.size > 8 * 1024 * 1024) {
+    showToast("사진은 8MB 이하로 선택해 주세요.");
     return;
   }
+
+  try {
+    if (typeof createImageBitmap === "function") {
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      const dataUrl = await compressImageSource(bitmap);
+      bitmap.close?.();
+      callback(dataUrl);
+      return;
+    }
+  } catch (error) {
+    console.info("createImageBitmap 처리에 실패해 FileReader로 다시 시도합니다.", error);
+  }
+
   const reader = new FileReader();
   reader.onload = () => {
     const image = new Image();
-    image.onload = () => {
-      const maxSize = 1200;
-      const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const context = canvas.getContext("2d");
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      callback(canvas.toDataURL("image/jpeg", 0.82));
+    image.onload = async () => {
+      try {
+        callback(await compressImageSource(image));
+      } catch {
+        callback(reader.result);
+      }
     };
     image.onerror = () => callback(reader.result);
     image.src = reader.result;
   };
+  reader.onerror = () => showToast("사진을 읽지 못했어요. 다시 시도해 주세요.");
   reader.readAsDataURL(file);
 }
 
@@ -713,16 +800,32 @@ document.addEventListener("click", (event) => {
     showToast("주문이 주방으로 전송되었어요!");
     return;
   }
+  if (button.dataset.action === "clear-menu-emoji") {
+    const form = document.querySelector("#menu-form");
+    if (form?.elements?.emoji) form.elements.emoji.value = "";
+    form?.querySelectorAll("[data-menu-emoji]").forEach((item) => item.classList.remove("active"));
+    return;
+  }
+  if (button.dataset.action === "clear-setting-emoji") {
+    const form = document.querySelector("#settings-form");
+    if (form?.elements?.emoji) form.elements.emoji.value = "";
+    form?.querySelectorAll("[data-setting-emoji]").forEach((item) => item.classList.remove("active"));
+    return;
+  }
   if (button.dataset.menuEmoji) {
     const form = document.querySelector("#menu-form");
-    form.elements.emoji.value = button.dataset.menuEmoji;
-    form.querySelectorAll("[data-menu-emoji]").forEach((item) => item.classList.toggle("active", item === button));
+    switchMediaMode(form, "emoji");
+    menuDraftImage = "";
+    resetUploadPreview(form?.querySelector(".upload-box"), "메뉴");
+    appendEmoji(form?.elements?.emoji, button.dataset.menuEmoji, form);
     return;
   }
   if (button.dataset.settingEmoji) {
     const form = document.querySelector("#settings-form");
-    form.elements.emoji.value = button.dataset.settingEmoji;
-    form.querySelectorAll("[data-setting-emoji]").forEach((item) => item.classList.toggle("active", item === button));
+    switchMediaMode(form, "emoji");
+    settingDraftImage = "";
+    resetUploadPreview(form?.querySelector(".upload-box"), "대표");
+    appendEmoji(form?.elements?.emoji, button.dataset.settingEmoji, form);
     return;
   }
   if (button.dataset.editMenu) {
@@ -790,28 +893,24 @@ document.addEventListener("click", (event) => {
 document.addEventListener("change", (event) => {
   const target = event.target;
   if (target.matches('#menu-form input[name="mediaType"]')) {
-    document.querySelector("[data-menu-media='emoji']").hidden = target.value !== "emoji";
-    document.querySelector("[data-menu-media='photo']").hidden = target.value !== "photo";
+    switchMediaMode(target.form, target.value);
+    if (target.value === "emoji") {
+      menuDraftImage = "";
+      resetUploadPreview(target.form.querySelector(".upload-box"), "메뉴");
+    }
   }
   if (target.matches('#settings-form input[name="mediaType"]')) {
-    document.querySelector("[data-setting-media='emoji']").hidden = target.value !== "emoji";
-    document.querySelector("[data-setting-media='photo']").hidden = target.value !== "photo";
+    switchMediaMode(target.form, target.value);
+    if (target.value === "emoji") {
+      settingDraftImage = "";
+      resetUploadPreview(target.form.querySelector(".upload-box"), "대표");
+    }
   }
   if (target.dataset.imageUpload === "menu") {
-    readImage(target.files[0], (result) => {
-      menuDraftImage = result;
-      const upload = target.closest(".upload-box");
-      upload.querySelector(":scope > div, :scope > img")?.remove();
-      upload.insertAdjacentHTML("afterbegin", `<img class="upload-preview" src="${result}" alt="메뉴 사진 미리보기" />`);
-    });
+    readImage(target.files[0], (result) => applyUploadedPhoto(target, result, "menu"));
   }
   if (target.dataset.imageUpload === "settings") {
-    readImage(target.files[0], (result) => {
-      settingDraftImage = result;
-      const upload = target.closest(".upload-box");
-      upload.querySelector(":scope > div, :scope > img")?.remove();
-      upload.insertAdjacentHTML("afterbegin", `<img class="upload-preview" src="${result}" alt="대표 사진 미리보기" />`);
-    });
+    readImage(target.files[0], (result) => applyUploadedPhoto(target, result, "settings"));
   }
   if (target.type === "color" && target.form) {
     const textName = `${target.name}Text`;
@@ -864,18 +963,19 @@ document.addEventListener("submit", (event) => {
   }
 
   if (form.id === "menu-form") {
-    const mediaType = data.get("mediaType");
+    const mediaType = data.get("mediaType") || (menuDraftImage ? "photo" : "emoji");
     if (mediaType === "photo" && !menuDraftImage) {
       showToast("메뉴 사진을 선택해 주세요.");
       return;
     }
+    const emojiValue = String(data.get("emoji") || "").trim();
     const menuData = {
       name: data.get("name").trim(),
       price: Number(data.get("price")),
       description: data.get("description").trim(),
       category: data.get("category") || "",
       mediaType,
-      emoji: data.get("emoji") || "🍽️",
+      emoji: mediaType === "photo" ? "" : (emojiValue || "🍽️"),
       image: mediaType === "photo" ? menuDraftImage : "",
     };
     const wasEditing = Boolean(editingMenuId);
@@ -894,19 +994,20 @@ document.addEventListener("submit", (event) => {
   }
 
   if (form.id === "settings-form") {
-    const mediaType = data.get("mediaType");
+    const mediaType = data.get("mediaType") || (settingDraftImage ? "photo" : "emoji");
     if (mediaType === "photo" && !settingDraftImage) {
       showToast("대표 사진을 선택해 주세요.");
       return;
     }
     const primary = safeColor(data.get("primaryColorText"), data.get("primaryColor"));
     const secondary = safeColor(data.get("secondaryColorText"), data.get("secondaryColor"));
+    const emojiValue = String(data.get("emoji") || "").trim();
     state.settings = {
       storeName: data.get("storeName").trim(),
       boardName: data.get("boardName").trim(),
       description: data.get("description").trim(),
       mediaType,
-      emoji: data.get("emoji").trim() || "🍴",
+      emoji: mediaType === "photo" ? "" : (emojiValue || "🍴"),
       image: mediaType === "photo" ? settingDraftImage : "",
       primaryColor: primary,
       secondaryColor: secondary,

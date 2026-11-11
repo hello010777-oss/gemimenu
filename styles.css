@@ -111,7 +111,8 @@ a:focus-visible {
 .hero-mark img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: #fff8f2;
 }
 
 .brand-copy {
@@ -302,16 +303,28 @@ a:focus-visible {
   display: grid;
   place-items: center;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
+  min-height: 180px;
   overflow: hidden;
   background: color-mix(in srgb, var(--secondary) 23%, white);
   font-size: 4.2rem;
 }
 
+.menu-visual.has-photo {
+  aspect-ratio: unset;
+  height: auto;
+  min-height: 200px;
+  padding: 10px;
+  background: #fff8f2;
+}
+
 .menu-visual img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+  object-position: center;
 }
 
 .menu-body {
@@ -669,8 +682,16 @@ a:focus-visible {
 
 .upload-preview {
   width: 100%;
-  height: 180px;
-  object-fit: cover;
+  height: 220px;
+  object-fit: contain;
+  background: #fff8f2;
+}
+
+.emoji-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
 }
 
 .color-row {
@@ -722,10 +743,14 @@ a:focus-visible {
   font-size: 2rem;
 }
 
+.manage-thumb.has-photo {
+  background: #fff8f2;
+}
+
 .manage-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .manage-copy {
@@ -854,6 +879,24 @@ a:focus-visible {
   gap: 10px;
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
+}
+
+.cart-media {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff8f2;
+  font-size: 1.25rem;
+}
+
+.cart-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .cart-line strong {
